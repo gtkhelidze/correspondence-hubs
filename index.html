@@ -727,7 +727,7 @@
             if(statNew) statNew.innerText = documents.filter(d => d.status === 'ახალი').length;
             if(statIncoming) statIncoming.innerText = documents.filter(d => d.type === 'შემოსული').length;
             if(statOutgoing) statOutgoing.innerText = documents.filter(d => d.type === 'გასული').length;
-            if(statInProgress) statInProgress.innerText = documents.filter(d => d.status === 'შესრულებულია').length;
+            if(statInProgress) statInProgress.innerText = documents.filter(d => d.status === 'პროცესშია').length;
 
             const today = formatDateLocal(new Date());
             const overdueCount = documents.filter(d => d.dueDate && d.dueDate < today && d.status !== 'შესრულებულია' && d.status !== 'არ საჭიროებს რეაგირებას').length;

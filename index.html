@@ -71,19 +71,19 @@
         let documents = [];
 
         const employeesList = [
-			"ამირან დემურაშვილი", "ანა სხულუხია", "გაიოზ თხელიძე", "გვანცა გორგოშაძე",
-			"გიორგი ამზაშვილი", "გიორგი ბაციკაძე", "ვალერიან დავითაია", "თამაზ ხიზანიშვილი",
-			"თამთა ანანიაშვილი", "ირაკლი კირტავა", "მაკა გაჩეჩილაძე", "მარიამ ესიაშვილი",
-			"მარიამ ხუხუნაიშვილი", "მარიამ ჯაყელი", "ნინო დოლიძე", "ნინო სამხარაული",
-			"სალომე ლოლიაშვილი", "ხატია გვილავა"
+            "ამირან დემურაშვილი", "ანა სხულუხია", "გაიოზ თხელიძე", "გვანცა გორგოშაძე",
+            "გიორგი ამზაშვილი", "გიორგი ბაციკაძე", "ვალერიან დავითაია", "თამაზ ხიზანიშვილი",
+            "თამთა ანანიაშვილი", "ირაკლი კირტავა", "მაკა გაჩეჩილაძე", "მარიამ ესიაშვილი",
+            "მარიამ ხუხუნაიშვილი", "მარიამ ჯაყელი", "ნინო დოლიძე", "ნინო სამხარაული",
+            "სალომე ლოლიაშვილი", "ხატია გვილავა"
         ];
 
         const emailsList = [
-			"ademurashvili@gse.ge", "askhulukhia@gse.ge", "gtkhelidze@gse.ge", "ggorgoshadze@gse.ge",
-			"gamzashvili@tse.ge", "gbatsikadze@gse.ge", "vdavitaia@gcsd.ge", "tkhizanishvili@gse.ge",
-			"tananiashvili@gcsd.ge", "ikirtava@gcsd.ge", "mgachechiladze@gse.ge", "mesiashvili@gse.ge",
-			"mkhukhunaishvili@gse.ge", "mjakeli@gcsd.ge", "ndolidze@gcsd.ge", "nsamkharauli@gse.ge",
-			"sloliashvili@gse.ge", "kgvilava@gse.ge"
+            "ademurashvili@gse.ge", "askhulukhia@gse.ge", "gtkhelidze@gse.ge", "ggorgoshadze@gse.ge",
+            "gamzashvili@tse.ge", "gbatsikadze@gse.ge", "vdavitaia@gcsd.ge", "tkhizanishvili@gse.ge",
+            "tananiashvili@gcsd.ge", "ikirtava@gcsd.ge", "mgachechiladze@gse.ge", "mesiashvili@gse.ge",
+            "mkhukhunaishvili@gse.ge", "mjakeli@gcsd.ge", "ndolidze@gcsd.ge", "nsamkharauli@gse.ge",
+            "sloliashvili@gse.ge", "kgvilava@gse.ge"
         ];
 
         let currentAssignees = [];
@@ -102,14 +102,12 @@
                 if (!window.firebaseAuth) return;
                 window.onAuthStateChanged(window.firebaseAuth, async (user) => {
                     if (user) {
-                        // მომხმარებელი ავტორიზებულია, წავიკითხოთ როლები Firestore-იდან
                         try {
                             const userDocRef = window.doc(window.db, "users", user.uid);
                             const userSnap = await window.getDoc(userDocRef);
                             if (userSnap.exists()) {
                                 currentUserData = userSnap.data();
                                 
-                                // თუ კომპანია არ არის არჩეული ან მომხმარებელს არ აქვს წვდომა, ავირჩიოთ პირველი ხელმისაწვდომი
                                 const availableCompanies = Object.keys(currentUserData.accessRoles || {});
                                 if (!currentCompany || !currentUserData.accessRoles[currentCompany]) {
                                     currentCompany = availableCompanies.length > 0 ? availableCompanies[0] : null;
@@ -154,7 +152,6 @@
 
             try {
                 await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
-                // წარმატებული შესვლის შემდეგ onAuthStateChanged თავად გახსნის აპლიკაციას
             } catch (err) {
                 console.error("ავტორიზაციის შეცდომა:", err);
                 errorEl.innerText = "არასწორი მეილი ან პაროლი!";
@@ -193,7 +190,6 @@
             loginScreen.classList.add('hidden');
             mainApp.classList.remove('hidden');
 
-            // კომპანიების გადართვის ტაბების გენერაცია (თუ რამდენიმეზე აქვს წვდომა)
             if (companyTabsContainer && currentUserData && currentUserData.accessRoles) {
                 companyTabsContainer.innerHTML = '';
                 const comps = { tse: 'TSE', gse: 'GSE', depo: 'CSD' };
@@ -487,6 +483,10 @@
             const senderInput = document.getElementById('docSender');
             const subjectInput = document.getElementById('docSubject');
             const statusInput = document.getElementById('docStatus');
+            const regNumberInput = document.getElementById('docRegNumber');
+            const regDateInput = document.getElementById('docRegDate');
+            const postChk = document.getElementById('docSentByPost');
+            const elecChk = document.getElementById('docSentElectronically');
 
             if(dueDateInput) {
                 dueDateInput.removeAttribute('max');
@@ -497,53 +497,43 @@
             currentEmails = [];
 
             if (id) {
-                if(modalTitle) modalTitle.innerText = "დოკუმენტის რედაქტირება";
-                if(dueDateLabel) dueDateLabel.innerHTML = 'შესრულების ვადა';
-                if(sentElectronicallyContainer) sentElectronicallyContainer.classList.remove('hidden');
-                if(saveBtn) saveBtn.innerText = "ცვლილებების შენახვა";
-                if(docTypeInput) docTypeInput.setAttribute('disabled', 'true'); 
-
                 const doc = documents.find(d => d.id === id);
+                const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
+                const isOwner = doc && doc.owner_uid === currentUid;
 
-                if (currentRole === 'employee') {
+                if(modalTitle) {
+                    modalTitle.innerText = isOwner ? "დოკუმენტის რედაქტირება" : "დოკუმენტის ნახვა (მხოლოდ წაკითხვა)";
+                }
+                
+                if (saveBtn) {
+                    if (isOwner || currentRole === 'director' || currentRole === 'clerk') {
+                        saveBtn.style.display = 'inline-block';
+                        saveBtn.innerText = "ცვლილებების შენახვა";
+                    } else {
+                        saveBtn.style.display = 'none';
+                    }
+                }
+
+                const shouldDisable = !isOwner && currentRole === 'employee';
+                
+                [docTypeInput, regNumberInput, regDateInput, senderInput, deptInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
+                    if(el) {
+                        if (shouldDisable) {
+                            el.setAttribute('disabled', 'true');
+                            el.classList.add('opacity-50', 'cursor-not-allowed');
+                        } else {
+                            el.removeAttribute('disabled');
+                            el.classList.remove('opacity-50', 'cursor-not-allowed');
+                        }
+                    }
+                });
+
+                if (currentRole === 'employee' && isOwner) {
                     if(deptInput) deptInput.setAttribute('disabled', 'true');
                     if(senderInput) senderInput.setAttribute('disabled', 'true');
-                    if(subjectInput) {
-                        subjectInput.removeAttribute('disabled');
-                        subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                    if(statusInput) statusInput.removeAttribute('disabled');
                     if(dueDateInput) {
                         dueDateInput.setAttribute('disabled', 'true');
                         dueDateInput.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                } else if (currentRole === 'clerk') {
-                    if(deptInput) deptInput.removeAttribute('disabled');
-                    if(senderInput) senderInput.removeAttribute('disabled');
-                    if(subjectInput) subjectInput.removeAttribute('disabled');
-                    if(statusInput) statusInput.removeAttribute('disabled');
-                    if(dueDateInput) {
-                        dueDateInput.setAttribute('disabled', 'true');
-                        dueDateInput.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
-                } else if (currentRole === 'director') {
-                    if(deptInput) deptInput.setAttribute('disabled', 'true');
-                    if(senderInput) deptInput.setAttribute('disabled', 'true');
-                    if(subjectInput) {
-                        subjectInput.removeAttribute('disabled');
-                        subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                    if(statusInput) statusInput.removeAttribute('disabled');
-                    if(dueDateInput) {
-                        dueDateInput.removeAttribute('disabled');
-                        dueDateInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-
-                    if (doc && doc.regDate && dueDateInput) {
-                        dueDateInput.min = doc.regDate;
-                        let base = new Date(doc.regDate);
-                        base.setMonth(base.getMonth() + 1);
-                        dueDateInput.max = formatDateLocal(base);
                     }
                 }
 
@@ -565,23 +555,17 @@
                         if(replyContainer) replyContainer.classList.add('hidden');
                     }
 
-                    document.getElementById('docRegNumber').value = doc.regNumber;
-                    document.getElementById('docRegDate').value = doc.regDate || '';
-                    document.getElementById('docSender').value = doc.sender;
-                    document.getElementById('docDept').value = doc.dept;
+                    if(regNumberInput) regNumberInput.value = doc.regNumber;
+                    if(regDateInput) regDateInput.value = doc.regDate || '';
+                    if(senderInput) senderInput.value = doc.sender;
+                    if(deptInput) deptInput.value = doc.dept;
                     
                     let dueDateVal = doc.dueDate || '';
-                    if (currentRole === 'employee' && !dueDateVal) {
-                        let targetDate = addBusinessDays(new Date(), 3);
-                        dueDateVal = formatDateLocal(targetDate);
-                    }
                     if(dueDateInput) dueDateInput.value = dueDateVal;
 
                     if(statusInput) statusInput.value = doc.status;
                     if(subjectInput) subjectInput.value = doc.subject;
-                    const postChk = document.getElementById('docSentByPost');
                     if(postChk) postChk.checked = !!doc.sentByPost;
-                    const elecChk = document.getElementById('docSentElectronically');
                     if(elecChk) elecChk.checked = !!doc.sentElectronically;
                     
                     currentAssignees = [...(doc.assignees || [])];
@@ -592,34 +576,33 @@
                 if(modalTitle) modalTitle.innerText = "ახალი დოკუმენტის რეგისტრაცია";
                 if(dueDateLabel) dueDateLabel.innerText = 'შესრულების ვადა (არასავალდებულო)';
                 if(sentElectronicallyContainer) sentElectronicallyContainer.classList.add('hidden');
-                if(saveBtn) saveBtn.innerText = "შენახვა";
+                if(saveBtn) {
+                    saveBtn.style.display = 'inline-block';
+                    saveBtn.innerText = "შენახვა";
+                }
                 if(replyContainer) replyContainer.classList.add('hidden');
 
-                if(docTypeInput) {
-                    docTypeInput.removeAttribute('disabled');
-                    docTypeInput.value = 'შემოსული';
-                }
+                [docTypeInput, regNumberInput, regDateInput, senderInput, deptInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
+                    if(el) {
+                        el.removeAttribute('disabled');
+                        el.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
+                });
+
+                if(docTypeInput) docTypeInput.value = 'შემოსული';
                 window.onDocTypeChange();
 
-                if(deptInput) deptInput.removeAttribute('disabled');
-                if(senderInput) senderInput.removeAttribute('disabled');
-                if(subjectInput) subjectInput.removeAttribute('disabled');
-                if(statusInput) statusInput.removeAttribute('disabled');
-                if(dueDateInput) dueDateInput.removeAttribute('disabled');
-
                 document.getElementById('docId').value = '';
-                document.getElementById('docRegDate').value = formatDateLocal(new Date());
+                if(regDateInput) regDateInput.value = formatDateLocal(new Date());
                 if(dueDateInput) dueDateInput.value = ''; 
                 if(replyIdInput) replyIdInput.value = '';
                 if(replySearch) replySearch.value = '';
 
-                const postChk = document.getElementById('docSentByPost');
                 if(postChk) postChk.checked = false;
-                const elecChk = document.getElementById('docSentElectronically');
                 if(elecChk) elecChk.checked = false;
                 
                 let prefix = (currentCompany === 'tse') ? 'თსბ' : (currentCompany === 'gse' ? 'სსბ' : 'დეპ');
-                document.getElementById('docRegNumber').value = prefix + '-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
+                if(regNumberInput) regNumberInput.value = prefix + '-' + new Date().getFullYear() + '-' + Math.floor(100 + Math.random() * 900);
             }
 
             renderAssigneeList();
@@ -677,6 +660,9 @@
             }
 
             const docId = id ? id : Date.now().toString();
+            const existingDoc = documents.find(d => d.id === docId);
+            const ownerUid = existingDoc ? (existingDoc.owner_uid || window.firebaseAuth.currentUser.uid) : window.firebaseAuth.currentUser.uid;
+
             const docData = {
                 id: docId,
                 company: currentCompany,
@@ -692,7 +678,8 @@
                 subject: document.getElementById('docSubject').value,
                 sentByPost: document.getElementById('docSentByPost').checked,
                 sentElectronically: id ? document.getElementById('docSentElectronically').checked : false,
-                replyToId: replyToIdVal
+                replyToId: replyToIdVal,
+                owner_uid: ownerUid
             };
 
             try {
@@ -701,24 +688,12 @@
                 await window.loadDocumentsFromFirebase();
             } catch (err) {
                 console.error("შენახვის შეცდომა:", err);
-                alert("მონაცემების შენახვა ვერ მოხერხდა!");
+                alert("მონაცემების შენახვა ვერ მოხერხდა! შესაძლოა არ გაქვთ ამ დოკუმენტის რედაქტირების უფლება.");
             }
         };
 
         window.deleteDoc = async function(id) {
-            if (currentRole !== 'clerk' && currentRole !== 'director') {
-                alert("წაშლის უფლება აქვთ მხოლოდ კანცელარიას და ხელმძღვანელ პირს!");
-                return;
-            }
-            if (confirm('ნამდვილად გსურთ ამ დოკუმენტის წაშლა?')) {
-                try {
-                    await window.firestoreDeleteDoc(window.doc(window.db, "correspondence", id));
-                    await window.loadDocumentsFromFirebase();
-                } catch (err) {
-                    console.error("წაშლის შეცდომა:", err);
-                    alert("დოკუმენტის წაშლა ვერ მოხერხდა!");
-                }
-            }
+            alert("დოკუმენტის წაშლა სრულად აკრძალულია!");
         };
 
         window.exportToCSV = function() {
@@ -898,7 +873,6 @@
                     <td class="py-4 px-3 text-center whitespace-nowrap">
                         <div class="flex items-center justify-center space-x-2">
                             <button onclick="requestEditDoc('${d.id}')" class="text-blue-400 hover:text-blue-300 p-2 text-sm" title="ნახვა / რედაქტირება"><i class="fa-solid fa-pen-to-square"></i></button>
-                            ${(currentRole === 'clerk' || currentRole === 'director') ? `<button onclick="deleteDoc('${d.id}')" class="text-rose-400 hover:text-rose-300 p-2 text-sm" title="წაშლა"><i class="fa-solid fa-trash"></i></button>` : ''}
                         </div>
                     </td>
                 `;
@@ -957,7 +931,6 @@
                 </div>
 
                 <div class="flex flex-wrap items-center gap-3">
-                    <!-- კომპანიებს შორის გადართვის ტაბები -->
                     <div id="companyTabsContainer" class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800"></div>
 
                     <button onclick="logoutSystem()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center gap-2" title="სისტემიდან გასვლა">
@@ -974,7 +947,6 @@
         </header>
 
         <main class="max-w-7xl mx-auto px-4 py-6 flex-grow w-full space-y-6">
-            <!-- სტატისტიკური ქარდები -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
                 <div class="bg-slate-900 border border-slate-800 p-4 rounded-xl shadow-sm flex items-center justify-between">
                     <div>

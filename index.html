@@ -302,11 +302,7 @@
                     if(replySearch && !replySearch.value) replySearch.value = '';
                     if(replyIdInput && !replyIdInput.value) replyIdInput.value = '';
                 }
-            } else if (type === 'შიდა') {
-                postText.innerText = "გადაცემულია შიდა წესით";
-                elecText.innerText = "ელექტრონულად გავრცელებულია";
-                if(replyContainer) replyContainer.classList.add('hidden');
-            }
+            } 
         };
 
         window.filterReplyDocs = function(query) {
@@ -866,8 +862,7 @@
                 let typeBadgeColor = 'bg-indigo-950 text-indigo-300 border border-indigo-800/50';
                 if (d.type === 'გასული') typeBadgeColor = 'bg-purple-950 text-purple-300 border border-purple-800/50';
                 else if (d.type === 'გასულია (ელექტრონულად)') typeBadgeColor = 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-800/50';
-                else if (d.type === 'შიდა') typeBadgeColor = 'bg-teal-950 text-teal-300 border border-teal-800/50';
-
+                
                 tr.innerHTML = `
                     <td class="py-4 px-3">
                         <span class="inline-block px-2 py-0.5 text-[11px] font-semibold rounded ${typeBadgeColor}">${d.type}</span>
@@ -961,7 +956,7 @@
                             <h1 id="companyTitle" class="text-xl font-bold text-slate-100">რეესტრი</h1>
                             <span id="roleBadge" class="text-xs px-2.5 py-0.5 rounded-full"></span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">შემოსული, გასული და შიდა დოკუმენტების მართვა</p>
+                        <p class="text-xs text-slate-400 mt-0.5">შემოსული და გასული დოკუმენტების მართვა</p>
                     </div>
                 </div>
 
@@ -1038,12 +1033,11 @@
                 <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
                     <select id="filterType" onchange="renderTable()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">ყველა ტიპი</option>
-                        <option value="შემოსული">შემოსული</option>
-                        <option value="გასული">გასული</option>
-                        <option value="გასულია (ელექტრონულად)">გასულია (ელექტრონულად)</option>
-                        <option value="შიდა">შიდა</option>
+                        <option value="შემოსული წერილი">შემოსული წერილი</option>
+                        <option value="გასული წერილი">გასული წერილი</option>
+                        <option value="გასული წერილი (ელექტრონულად)">გასული წერილი(ელექტრონულად)</option>
                     </select>
-
+                    
                     <select id="filterDept" onchange="renderTable()" class="bg-slate-950 border border-slate-800 text-slate-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                         <option value="">ყველა დეპარტამენტი</option>
                         <option value="ადმინისტრაცია">ადმინისტრაცია</option>
@@ -1112,10 +1106,9 @@
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">დოკუმენტის ტიპი</label>
                         <select id="docType" onchange="onDocTypeChange()" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
-                            <option value="შემოსული">შემოსული</option>
-                            <option value="გასული">გასული</option>
-                            <option value="გასულია (ელექტრონულად)">გასულია (ელექტრონულად)</option>
-                            <option value="შიდა">შიდა</option>
+                            <option value="შემოსული წერილი">შემოსული წერილი</option>
+                            <option value="გასული წერილი">გასული წერილი</option>
+                            <option value="გასული წერილი (ელექტრონულად)">გასული წერილი (ელექტრონულად)</option>
                         </select>
                     </div>
                     <div>

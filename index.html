@@ -381,7 +381,12 @@
             if(!container) return;
             container.innerHTML = '';
 
-            const canManage = (currentRole === 'clerk' || currentRole === 'employee' || currentRole === 'director');
+            const docId = document.getElementById('docId').value;
+            const doc = documents.find(d => d.id === docId);
+            const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
+            const isOwner = doc && doc.owner_uid === currentUid;
+            
+            const canManage = isOwner || currentRole === 'clerk' || currentRole === 'director';
 
             currentAssignees.forEach(name => {
                 const tag = document.createElement('div');
@@ -432,7 +437,12 @@
             if(!container) return;
             container.innerHTML = '';
 
-            const canManage = (currentRole === 'clerk' || currentRole === 'employee' || currentRole === 'director');
+            const docId = document.getElementById('docId').value;
+            const doc = documents.find(d => d.id === docId);
+            const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
+            const isOwner = doc && doc.owner_uid === currentUid;
+            
+            const canManage = isOwner || currentRole === 'clerk' || currentRole === 'director';
 
             currentEmails.forEach(email => {
                 const tag = document.createElement('div');

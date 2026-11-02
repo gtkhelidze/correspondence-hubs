@@ -96,7 +96,6 @@
             return `${year}-${month}-${day}`;
         }
 
-        // Firebase Auth მდგომარეობის მონიტორინგი
         document.addEventListener('DOMContentLoaded', () => {
             const initAuthListener = () => {
                 if (!window.firebaseAuth) return;
@@ -702,8 +701,24 @@
             }
         };
 
+        // წაშლის ფუნქცია — უფლება აქვთ მხოლოდ კანცელარიასა და დირექტორს
         window.deleteDoc = async function(id) {
-            alert("დოკუმენტის წაშლა სრულად აკრძალულია!");
+            if (currentRole !== 'clerk' && currentRole !== 'director') {
+                alert("დოკუმენტის წაშლის უფლება აქვთ მხოლოდ კანცელარიასა და ხელმძღვანელ პირს!");
+                return;
+            }
+
+            if (!confirm("ნამდვილად გწადდათ ამ დოკუმენტის წაშლა?")) {
+                return;
+            }
+
+            try {
+                await window.firestoreDeleteDoc(window.doc(window.db, "correspondence", id));
+                await window.loadDocumentsFromFirebase();
+            } catch (err) {
+                console.error("წაშლის შეცდომა:", err);
+                alert("დოკუმენტის წაშლა ვერ მოხერხდა!");
+            }
         };
 
         window.exportToCSV = function() {
@@ -841,6 +856,12 @@
                 let postLabel = d.type === 'შემოსული' ? 'მოწოდებულია ფოსტით' : (d.type === 'გასული' ? 'გაგზავნილია ფოსტით' : 'გადაცემულია შიდა წესით');
                 let elecLabel = d.type === 'შემოსული' ? 'ელექტრონულად მიღებულია' : (d.type === 'გასული' ? 'ელექტრონულად გაგზავნილია' : 'ელექტრონულად გავრცელებულია');
 
+                // წაშლის ღილაკი გამოჩნდება მხოლოდ კანცელარიისთვის (clerk) და დირექტორისთვის (director)
+                let deleteButtonHtml = '';
+                if (currentRole === 'clerk' || currentRole === 'director') {
+                    deleteButtonHtml = `<button onclick="deleteDoc('${d.id}')" class="text-rose-400 hover:text-rose-300 p-2 text-sm" title="დოკუმენტის წაშლა"><i class="fa-solid fa-trash-can"></i></button>`;
+                }
+
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition border-b border-slate-800';
                 
@@ -881,8 +902,9 @@
                         <span class="px-2.5 py-1 text-[11px] font-semibold rounded-full ${badgeClass} inline-block">${d.status}</span>
                     </td>
                     <td class="py-4 px-3 text-center whitespace-nowrap">
-                        <div class="flex items-center justify-center space-x-2">
+                        <div class="flex items-center justify-center space-x-1">
                             <button onclick="requestEditDoc('${d.id}')" class="text-blue-400 hover:text-blue-300 p-2 text-sm" title="ნახვა / რედაქტირება"><i class="fa-solid fa-pen-to-square"></i></button>
+                            ${deleteButtonHtml}
                         </div>
                     </td>
                 `;

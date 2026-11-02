@@ -292,15 +292,15 @@
                 postText.innerText = "მოწოდებულია ფოსტით";
                 elecText.innerText = "ელექტრონულად მიღებულია";
                 if(replyContainer) replyContainer.classList.add('hidden');
-            } else if (type === 'გასული') {
+            } else if (type === 'გასული' || type === 'გასულია (ელექტრონულად)') {
                 postText.innerText = "გაგზავნილია ფოსტით";
                 elecText.innerText = "ელექტრონულად გაგზავნილია";
                 if(replyContainer) {
                     replyContainer.classList.remove('hidden');
                     const replySearch = document.getElementById('docReplySearch');
                     const replyIdInput = document.getElementById('docReplyToId');
-                    if(replySearch) replySearch.value = '';
-                    if(replyIdInput) replyIdInput.value = '';
+                    if(replySearch && !replySearch.value) replySearch.value = '';
+                    if(replyIdInput && !replyIdInput.value) replyIdInput.value = '';
                 }
             } else if (type === 'შიდა') {
                 postText.innerText = "გადაცემულია შიდა წესით";
@@ -551,7 +551,7 @@
                     if(docTypeInput) docTypeInput.value = doc.type;
                     window.onDocTypeChange();
 
-                    if (doc.type === 'გასული') {
+                    if (doc.type === 'გასული' || doc.type === 'გასულია (ელექტრონულად)') {
                         if(replyContainer) replyContainer.classList.remove('hidden');
                         if(doc.replyToId) {
                             const parentDoc = documents.find(item => item.id === doc.replyToId);
@@ -639,7 +639,7 @@
             let dueDateVal = dueDateEl ? dueDateEl.value : '';
 
             let replyToIdVal = null;
-            if (docTypeVal === 'გასული') {
+            if (docTypeVal === 'გასული' || docTypeVal === 'გასულია (ელექტრონულად)') {
                 const replyIdInput = document.getElementById('docReplyToId');
                 replyToIdVal = replyIdInput ? (replyIdInput.value || null) : null;
             }
@@ -701,14 +701,13 @@
             }
         };
 
-        // წაშლის ფუნქცია — უფლება აქვთ მხოლოდ კანცელარიასა და დირექტორს
         window.deleteDoc = async function(id) {
             if (currentRole !== 'clerk' && currentRole !== 'director') {
                 alert("დოკუმენტის წაშლის უფლება აქვთ მხოლოდ კანცელარიასა და ხელმძღვანელ პირს!");
                 return;
             }
 
-            if (!confirm("ნამდვილად გწადდათ ამ დოკუმენტის წაშლა?")) {
+            if (!confirm("ნამდვილად გსურთ ამ დოკუმენტის წაშლა?")) {
                 return;
             }
 
@@ -812,7 +811,7 @@
             if(statTotal) statTotal.innerText = documents.length;
             if(statNew) statNew.innerText = documents.filter(d => d.status === 'ახალი').length;
             if(statIncoming) statIncoming.innerText = documents.filter(d => d.type === 'შემოსული').length;
-            if(statOutgoing) statOutgoing.innerText = documents.filter(d => d.type === 'გასული').length;
+            if(statOutgoing) statOutgoing.innerText = documents.filter(d => d.type === 'გასული' || d.type === 'გასულია (ელექტრონულად)').length;
             if(statInProgress) statInProgress.innerText = documents.filter(d => d.status === 'პროცესშია').length;
 
             const today = formatDateLocal(new Date());
@@ -846,17 +845,16 @@
                 }
 
                 let parentLinkHtml = '';
-                if (d.type === 'გასული' && d.replyToId) {
+                if ((d.type === 'გასული' || d.type === 'გასულია (ელექტრონულად)') && d.replyToId) {
                     const parentDoc = documents.find(item => item.id === d.replyToId);
                     if (parentDoc) {
                         parentLinkHtml = `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1"><i class="fa-solid fa-reply"></i> პასუხია შემოსულზე: #${parentDoc.regNumber}</div>`;
                     }
                 }
 
-                let postLabel = d.type === 'შემოსული' ? 'მოწოდებულია ფოსტით' : (d.type === 'გასული' ? 'გაგზავნილია ფოსტით' : 'გადაცემულია შიდა წესით');
-                let elecLabel = d.type === 'შემოსული' ? 'ელექტრონულად მიღებულია' : (d.type === 'გასული' ? 'ელექტრონულად გაგზავნილია' : 'ელექტრონულად გავრცელებულია');
+                let postLabel = d.type === 'შემოსული' ? 'მოწოდებულია ფოსტით' : ((d.type === 'გასული' || d.type === 'გასულია (ელექტრონულად)') ? 'გაგზავნილია ფოსტით' : 'გადაცემულია შიდა წესით');
+                let elecLabel = d.type === 'შემოსული' ? 'ელექტრონულად მიღებულია' : ((d.type === 'გასული' || d.type === 'გასულია (ელექტრონულად)') ? 'ელექტრონულად გაგზავნილია' : 'ელექტრონულად გავრცელებულია');
 
-                // წაშლის ღილაკი გამოჩნდება მხოლოდ კანცელარიისთვის (clerk) და დირექტორისთვის (director)
                 let deleteButtonHtml = '';
                 if (currentRole === 'clerk' || currentRole === 'director') {
                     deleteButtonHtml = `<button onclick="deleteDoc('${d.id}')" class="text-rose-400 hover:text-rose-300 p-2 text-sm" title="დოკუმენტის წაშლა"><i class="fa-solid fa-trash-can"></i></button>`;
@@ -865,9 +863,14 @@
                 const tr = document.createElement('tr');
                 tr.className = 'hover:bg-slate-800/50 transition border-b border-slate-800';
                 
+                let typeBadgeColor = 'bg-indigo-950 text-indigo-300 border border-indigo-800/50';
+                if (d.type === 'გასული') typeBadgeColor = 'bg-purple-950 text-purple-300 border border-purple-800/50';
+                else if (d.type === 'გასულია (ელექტრონულად)') typeBadgeColor = 'bg-fuchsia-950 text-fuchsia-300 border border-fuchsia-800/50';
+                else if (d.type === 'შიდა') typeBadgeColor = 'bg-teal-950 text-teal-300 border border-teal-800/50';
+
                 tr.innerHTML = `
                     <td class="py-4 px-3">
-                        <span class="inline-block px-2 py-0.5 text-[11px] font-semibold rounded ${d.type === 'შემოსული' ? 'bg-indigo-950 text-indigo-300 border border-indigo-800/50' : d.type === 'გასული' ? 'bg-purple-950 text-purple-300 border border-purple-800/50' : 'bg-teal-950 text-teal-300 border border-teal-800/50'}">${d.type}</span>
+                        <span class="inline-block px-2 py-0.5 text-[11px] font-semibold rounded ${typeBadgeColor}">${d.type}</span>
                         <div class="font-bold text-slate-100 mt-1 text-xs">${d.regNumber}</div>
                     </td>
                     <td class="py-4 px-3 text-slate-300 text-xs whitespace-nowrap">${d.regDate}</td>
@@ -1037,6 +1040,7 @@
                         <option value="">ყველა ტიპი</option>
                         <option value="შემოსული">შემოსული</option>
                         <option value="გასული">გასული</option>
+                        <option value="გასულია (ელექტრონულად)">გასულია (ელექტრონულად)</option>
                         <option value="შიდა">შიდა</option>
                     </select>
 
@@ -1110,6 +1114,7 @@
                         <select id="docType" onchange="onDocTypeChange()" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
                             <option value="შემოსული">შემოსული</option>
                             <option value="გასული">გასული</option>
+                            <option value="გასულია (ელექტრონულად)">გასულია (ელექტრონულად)</option>
                             <option value="შიდა">შიდა</option>
                         </select>
                     </div>

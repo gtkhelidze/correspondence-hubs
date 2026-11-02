@@ -18,7 +18,6 @@
             opacity: 0.8;
         }
 
-        /* სქროლბარის სრულიად დამალვა ყველა ბრაუზერში */
         .no-scrollbar::-webkit-scrollbar {
             display: none;
         }
@@ -31,7 +30,8 @@
     <!-- Firebase SDK Imports & Config -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getFirestore, collection, getDocs, setDoc, doc, deleteDoc as firestoreDeleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, getDocs, setDoc, doc, getDoc, deleteDoc as firestoreDeleteDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBHtFGoBqT0C1AaBmwlifwj0RsHP0tsvL4",
@@ -43,11 +43,19 @@
         };
 
         const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
         const db = getFirestore(app);
+
+        window.firebaseAuth = auth;
+        window.signInWithEmailAndPassword = signInWithEmailAndPassword;
+        window.signOut = signOut;
+        window.onAuthStateChanged = onAuthStateChanged;
 
         window.db = db;
         window.collectionRef = collection(db, "correspondence");
+        window.usersRef = collection(db, "users");
         window.getDocs = getDocs;
+        window.getDoc = getDoc;
         window.setDoc = setDoc;
         window.doc = doc;
         window.firestoreDeleteDoc = firestoreDeleteDoc;
@@ -57,56 +65,30 @@
     </script>
 
     <script>
+        let currentUserData = null;
         let currentCompany = localStorage.getItem('tse_active_company') || null;
-        let currentRole = localStorage.getItem('tse_active_role') || null; 
+        let currentRole = null; 
         let documents = [];
 
         const employeesList = [
-			"ამირან დემურაშვილი",
-			"ანა სხულუხია",
-			"გაიოზ თხელიძე",
-			"გვანცა გორგოშაძე",
-			"გიორგი ამზაშვილი",
-			"გიორგი ბაციკაძე",
-			"ვალერიან დავითაია",
-			"თამაზ ხიზანიშვილი",
-			"თამთა ანანიაშვილი",
-			"ირაკლი კირტავა",
-			"მაკა გაჩეჩილაძე",
-			"მარიამ ესიაშვილი",
-			"მარიამ ხუხუნაიშვილი",
-			"მარიამ ჯაყელი",
-			"ნინო დოლიძე",
-			"ნინო სამხარაული",
-			"სალომე ლოლიაშვილი",
-			"ხატია გვილავა"
+			"ამირან დემურაშვილი", "ანა სხულუხია", "გაიოზ თხელიძე", "გვანცა გორგოშაძე",
+			"გიორგი ამზაშვილი", "გიორგი ბაციკაძე", "ვალერიან დავითაია", "თამაზ ხიზანიშვილი",
+			"თამთა ანანიაშვილი", "ირაკლი კირტავა", "მაკა გაჩეჩილაძე", "მარიამ ესიაშვილი",
+			"მარიამ ხუხუნაიშვილი", "მარიამ ჯაყელი", "ნინო დოლიძე", "ნინო სამხარაული",
+			"სალომე ლოლიაშვილი", "ხატია გვილავა"
         ];
 
         const emailsList = [
-			"ademurashvili@gse.ge",
-			"askhulukhia@gse.ge",
-			"gtkhelidze@gse.ge",
-			"ggorgoshadze@gse.ge",
-			"gamzashvili@tse.ge",
-			"gbatsikadze@gse.ge",
-			"vdavitaia@gcsd.ge",
-			"tkhizanishvili@gse.ge",
-			"tananiashvili@gcsd.ge",
-			"ikirtava@gcsd.ge",
-			"mgachechiladze@gse.ge",
-			"mesiashvili@gse.ge",
-			"mkhukhunaishvili@gse.ge",
-			"mjakeli@gcsd.ge",
-			"ndolidze@gcsd.ge",
-			"nsamkharauli@gse.ge",
-			"sloliashvili@gse.ge",
-			"kgvilava@gse.ge"
+			"ademurashvili@gse.ge", "askhulukhia@gse.ge", "gtkhelidze@gse.ge", "ggorgoshadze@gse.ge",
+			"gamzashvili@tse.ge", "gbatsikadze@gse.ge", "vdavitaia@gcsd.ge", "tkhizanishvili@gse.ge",
+			"tananiashvili@gcsd.ge", "ikirtava@gcsd.ge", "mgachechiladze@gse.ge", "mesiashvili@gse.ge",
+			"mkhukhunaishvili@gse.ge", "mjakeli@gcsd.ge", "ndolidze@gcsd.ge", "nsamkharauli@gse.ge",
+			"sloliashvili@gse.ge", "kgvilava@gse.ge"
         ];
 
         let currentAssignees = [];
         let currentEmails = [];
 
-        // დამხმარე ფუნქცია ადგილობრივი თარიღის სწორი ფორმატირებისთვის (YYYY-MM-DD)
         function formatDateLocal(d) {
             const year = d.getFullYear();
             const month = String(d.getMonth() + 1).padStart(2, '0');
@@ -114,22 +96,117 @@
             return `${year}-${month}-${day}`;
         }
 
-        window.initCompanySession = async function() {
+        // Firebase Auth მდგომარეობის მონიტორინგი
+        document.addEventListener('DOMContentLoaded', () => {
+            const initAuthListener = () => {
+                if (!window.firebaseAuth) return;
+                window.onAuthStateChanged(window.firebaseAuth, async (user) => {
+                    if (user) {
+                        // მომხმარებელი ავტორიზებულია, წავიკითხოთ როლები Firestore-იდან
+                        try {
+                            const userDocRef = window.doc(window.db, "users", user.uid);
+                            const userSnap = await window.getDoc(userDocRef);
+                            if (userSnap.exists()) {
+                                currentUserData = userSnap.data();
+                                
+                                // თუ კომპანია არ არის არჩეული ან მომხმარებელს არ აქვს წვდომა, ავირჩიოთ პირველი ხელმისაწვდომი
+                                const availableCompanies = Object.keys(currentUserData.accessRoles || {});
+                                if (!currentCompany || !currentUserData.accessRoles[currentCompany]) {
+                                    currentCompany = availableCompanies.length > 0 ? availableCompanies[0] : null;
+                                }
+                                
+                                if (currentCompany) {
+                                    currentRole = currentUserData.accessRoles[currentCompany];
+                                    localStorage.setItem('tse_active_company', currentCompany);
+                                }
+                                
+                                window.initAppInterface();
+                            } else {
+                                alert("მომხმარებლის მონაცემები ბაზაში ვერ მოიძებნა!");
+                                await window.signOut(window.firebaseAuth);
+                            }
+                        } catch (err) {
+                            console.error("მომხმარებლის მონაცემების წაკითხვის შეცდომა:", err);
+                        }
+                    } else {
+                        currentUserData = null;
+                        currentRole = null;
+                        document.getElementById('loginScreen').classList.remove('hidden');
+                        document.getElementById('mainApp').classList.add('hidden');
+                    }
+                });
+            };
+
+            if (window.isFirebaseReady) {
+                initAuthListener();
+            } else {
+                window.addEventListener('firebase-ready', initAuthListener);
+            }
+        });
+
+        window.handleLoginSubmit = async function(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value.trim();
+            const password = document.getElementById('loginPassword').value;
+            const errorEl = document.getElementById('loginError');
+            
+            errorEl.classList.add('hidden');
+
+            try {
+                await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+                // წარმატებული შესვლის შემდეგ onAuthStateChanged თავად გახსნის აპლიკაციას
+            } catch (err) {
+                console.error("ავტორიზაციის შეცდომა:", err);
+                errorEl.innerText = "არასწორი მეილი ან პაროლი!";
+                errorEl.classList.remove('hidden');
+            }
+        };
+
+        window.logoutSystem = async function() {
+            try {
+                await window.signOut(window.firebaseAuth);
+                localStorage.removeItem('tse_active_company');
+                currentCompany = null;
+                currentRole = null;
+            } catch (err) {
+                console.error("გასვლის შეცდომა:", err);
+            }
+        };
+
+        window.switchCompanyTab = function(companyKey) {
+            if (!currentUserData || !currentUserData.accessRoles[companyKey]) return;
+            currentCompany = companyKey;
+            currentRole = currentUserData.accessRoles[companyKey];
+            localStorage.setItem('tse_active_company', companyKey);
+            window.initAppInterface();
+        };
+
+        window.initAppInterface = async function() {
             const loginScreen = document.getElementById('loginScreen');
             const mainApp = document.getElementById('mainApp');
             const companyTitle = document.getElementById('companyTitle');
             const roleBadge = document.getElementById('roleBadge');
+            const companyTabsContainer = document.getElementById('companyTabsContainer');
 
             if (!loginScreen || !mainApp || !companyTitle || !roleBadge) return;
 
-            if (!currentCompany || !currentRole) {
-                loginScreen.classList.remove('hidden');
-                mainApp.classList.add('hidden');
-                return;
-            }
-
             loginScreen.classList.add('hidden');
             mainApp.classList.remove('hidden');
+
+            // კომპანიების გადართვის ტაბების გენერაცია (თუ რამდენიმეზე აქვს წვდომა)
+            if (companyTabsContainer && currentUserData && currentUserData.accessRoles) {
+                companyTabsContainer.innerHTML = '';
+                const comps = { tse: 'TSE', gse: 'GSE', depo: 'CSD' };
+                
+                Object.keys(currentUserData.accessRoles).forEach(compKey => {
+                    const btn = document.createElement('button');
+                    const isActive = compKey === currentCompany;
+                    btn.className = `px-3 py-1.5 rounded-lg text-xs font-bold transition border ${isActive ? 'bg-indigo-600 text-white border-indigo-500 shadow' : 'bg-slate-950 text-slate-400 border-slate-800 hover:bg-slate-800'}`;
+                    btn.innerText = comps[compKey] || compKey.toUpperCase();
+                    btn.onclick = () => window.switchCompanyTab(compKey);
+                    companyTabsContainer.appendChild(btn);
+                });
+            }
 
             let compName = "";
             let roleTitle = "";
@@ -185,50 +262,6 @@
             window.renderTable();
         };
 
-        window.loginToSystem = function(company, role) {
-            let promptText = "";
-            let validPass = "";
-            let compTitle = company === 'tse' ? 'თბილისის ბირჟის' : (company === 'gse' ? 'საქართველოს ბირჟის' : 'დეპოზიტარის');
-
-            if (role === 'clerk') {
-                promptText = `შეიყვანეთ ${compTitle} კანცელარიის პაროლი:`;
-                if (company === 'tse') validPass = "tse_clerk123";
-                else if (company === 'gse') validPass = "gse_clerk123";
-                else if (company === 'depo') validPass = "dep_clerk123";
-            } else if (role === 'employee') {
-                promptText = `შეიყვანეთ ${compTitle} თანამშრომლის პაროლი:`;
-                if (company === 'tse') validPass = "tse_emp123";
-                else if (company === 'gse') validPass = "gse_emp123";
-                else if (company === 'depo') validPass = "dep_emp123";
-            } else if (role === 'director') {
-                promptText = `შეიყვანეთ ${compTitle} ხელმძღვანელი პირის პაროლი:`;
-                if (company === 'tse') validPass = "tse_dir123";
-                else if (company === 'gse') validPass = "gse_dir123";
-                else if (company === 'depo') validPass = "dep_dir123";
-            }
-
-            let password = prompt(promptText);
-            if (password === null) return;
-
-            if (password === validPass) {
-                currentCompany = company;
-                currentRole = role;
-                localStorage.setItem('tse_active_company', company);
-                localStorage.setItem('tse_active_role', role);
-                window.initCompanySession();
-            } else {
-                alert("არასწორი პაროლი!");
-            }
-        };
-
-        window.logoutCompany = function() {
-            currentCompany = null;
-            currentRole = null;
-            localStorage.removeItem('tse_active_company');
-            localStorage.removeItem('tse_active_role');
-            window.initCompanySession();
-        };
-
         window.requestNewDoc = function() {
             if (currentRole !== 'clerk') {
                 alert("ახალი დოკუმენტის რეგისტრაციის უფლება აქვს მხოლოდ კანცელარიას!");
@@ -241,13 +274,12 @@
             window.openModal(id);
         };
 
-        // დამხმარე ფუნქცია: ამატებს მხოლოდ სამუშაო დღეებს (შაბათ-კვირის გამოკლებით)
         function addBusinessDays(startDate, daysToAdd) {
             let currentDate = new Date(startDate);
             let addedDays = 0;
             while (addedDays < daysToAdd) {
                 currentDate.setDate(currentDate.getDate() + 1);
-                let dayOfWeek = currentDate.getDay(); // 0 - კვირა, 6 - შაბათი
+                let dayOfWeek = currentDate.getDay();
                 if (dayOfWeek !== 0 && dayOfWeek !== 6) {
                     addedDays++;
                 }
@@ -259,31 +291,91 @@
             const type = document.getElementById('docType').value;
             const postText = document.getElementById('postText');
             const elecText = document.getElementById('elecText');
+            const replyContainer = document.getElementById('replyToContainer');
 
             if (type === 'შემოსული') {
                 postText.innerText = "მოწოდებულია ფოსტით";
                 elecText.innerText = "ელექტრონულად მიღებულია";
+                if(replyContainer) replyContainer.classList.add('hidden');
             } else if (type === 'გასული') {
                 postText.innerText = "გაგზავნილია ფოსტით";
                 elecText.innerText = "ელექტრონულად გაგზავნილია";
+                if(replyContainer) {
+                    replyContainer.classList.remove('hidden');
+                    const replySearch = document.getElementById('docReplySearch');
+                    const replyIdInput = document.getElementById('docReplyToId');
+                    if(replySearch) replySearch.value = '';
+                    if(replyIdInput) replyIdInput.value = '';
+                }
             } else if (type === 'შიდა') {
                 postText.innerText = "გადაცემულია შიდა წესით";
                 elecText.innerText = "ელექტრონულად გავრცელებულია";
+                if(replyContainer) replyContainer.classList.add('hidden');
             }
         };
 
+        window.filterReplyDocs = function(query) {
+            const resultsContainer = document.getElementById('replySearchResults');
+            const currentDocId = document.getElementById('docId').value;
+            
+            if (!query || query.trim() === "") {
+                resultsContainer.classList.add('hidden');
+                resultsContainer.innerHTML = '';
+                return;
+            }
+
+            const searchTerm = query.toLowerCase();
+            const matchedDocs = documents.filter(d => {
+                return d.type === 'შემოსული' && 
+                       d.id !== currentDocId && 
+                       (d.regNumber.toLowerCase().includes(searchTerm) || 
+                        d.subject.toLowerCase().includes(searchTerm) || 
+                        d.sender.toLowerCase().includes(searchTerm));
+            });
+
+            resultsContainer.innerHTML = '';
+            if (matchedDocs.length === 0) {
+                resultsContainer.innerHTML = '<div class="p-2.5 text-xs text-slate-500">ვერ მოიძებნა</div>';
+            } else {
+                matchedDocs.forEach(d => {
+                    const item = document.createElement('div');
+                    item.className = 'p-2.5 text-xs text-slate-200 hover:bg-slate-800 cursor-pointer border-b border-slate-800 last:border-b-0';
+                    item.innerHTML = `<div class="font-bold text-indigo-400">#${d.regNumber}</div><div class="truncate text-slate-300">${d.subject} (${d.sender})</div>`;
+                    item.onclick = () => selectReplyDoc(d.id, `#${d.regNumber} - ${d.subject}`);
+                    resultsContainer.appendChild(item);
+                });
+            }
+            resultsContainer.classList.remove('hidden');
+        };
+
+        window.selectReplyDoc = function(id, displayText) {
+            document.getElementById('docReplyToId').value = id;
+            document.getElementById('docReplySearch').value = displayText;
+            document.getElementById('replySearchResults').classList.add('hidden');
+        };
+
         window.onEmployeeSelectChange = function(selectEl) {
-            const val = selectEl.value;
-            if (!val) return;
-            if (!currentAssignees.includes(val)) {
-                currentAssignees.push(val);
+            const selectedName = selectEl.value;
+            if (!selectedName) return;
+
+            if (!currentAssignees.includes(selectedName)) {
+                currentAssignees.push(selectedName);
                 renderAssigneeList();
             }
+
+            const empIndex = employeesList.indexOf(selectedName);
+            if (empIndex !== -1 && emailsList[empIndex]) {
+                const correspondingEmail = emailsList[empIndex];
+                if (!currentEmails.includes(correspondingEmail)) {
+                    currentEmails.push(correspondingEmail);
+                    renderEmailList();
+                }
+            }
+
             selectEl.value = "";
         };
 
         window.removeAssignee = function(name) {
-            if (currentRole !== 'clerk' && currentRole !== 'employee' && currentRole !== 'director') return;
             currentAssignees = currentAssignees.filter(item => item !== name);
             renderAssigneeList();
         };
@@ -335,7 +427,6 @@
         };
 
         window.removeEmail = function(email) {
-            if (currentRole !== 'clerk' && currentRole !== 'employee' && currentRole !== 'director') return;
             currentEmails = currentEmails.filter(item => item !== email);
             renderEmailList();
         };
@@ -388,6 +479,9 @@
             const dueDateLabel = document.getElementById('dueDateLabel');
             const sentElectronicallyContainer = document.getElementById('sentElectronicallyContainer');
             const saveBtn = document.getElementById('saveBtn');
+            const replyContainer = document.getElementById('replyToContainer');
+            const replySearch = document.getElementById('docReplySearch');
+            const replyIdInput = document.getElementById('docReplyToId');
 
             const deptInput = document.getElementById('docDept');
             const senderInput = document.getElementById('docSender');
@@ -407,7 +501,6 @@
                 if(dueDateLabel) dueDateLabel.innerHTML = 'შესრულების ვადა';
                 if(sentElectronicallyContainer) sentElectronicallyContainer.classList.remove('hidden');
                 if(saveBtn) saveBtn.innerText = "ცვლილებების შენახვა";
-                
                 if(docTypeInput) docTypeInput.setAttribute('disabled', 'true'); 
 
                 const doc = documents.find(d => d.id === id);
@@ -420,41 +513,27 @@
                         subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
                     }
                     if(statusInput) statusInput.removeAttribute('disabled');
-                    
                     if(dueDateInput) {
                         dueDateInput.setAttribute('disabled', 'true');
                         dueDateInput.classList.add('opacity-50', 'cursor-not-allowed');
                     }
                 } else if (currentRole === 'clerk') {
-                    if(deptInput) {
-                        deptInput.removeAttribute('disabled');
-                        deptInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                    if(senderInput) {
-                        senderInput.removeAttribute('disabled');
-                        senderInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
-                    if(subjectInput) {
-                        subjectInput.removeAttribute('disabled');
-                        subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                    }
+                    if(deptInput) deptInput.removeAttribute('disabled');
+                    if(senderInput) senderInput.removeAttribute('disabled');
+                    if(subjectInput) subjectInput.removeAttribute('disabled');
                     if(statusInput) statusInput.removeAttribute('disabled');
-                    
                     if(dueDateInput) {
                         dueDateInput.setAttribute('disabled', 'true');
                         dueDateInput.classList.add('opacity-50', 'cursor-not-allowed');
                     }
                 } else if (currentRole === 'director') {
                     if(deptInput) deptInput.setAttribute('disabled', 'true');
-                    if(senderInput) senderInput.setAttribute('disabled', 'true');
-                    
+                    if(senderInput) deptInput.setAttribute('disabled', 'true');
                     if(subjectInput) {
                         subjectInput.removeAttribute('disabled');
                         subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
                     }
-                    
                     if(statusInput) statusInput.removeAttribute('disabled');
-                    
                     if(dueDateInput) {
                         dueDateInput.removeAttribute('disabled');
                         dueDateInput.classList.remove('opacity-50', 'cursor-not-allowed');
@@ -472,6 +551,19 @@
                     document.getElementById('docId').value = doc.id;
                     if(docTypeInput) docTypeInput.value = doc.type;
                     window.onDocTypeChange();
+
+                    if (doc.type === 'გასული') {
+                        if(replyContainer) replyContainer.classList.remove('hidden');
+                        if(doc.replyToId) {
+                            const parentDoc = documents.find(item => item.id === doc.replyToId);
+                            if(parentDoc) {
+                                if(replyIdInput) replyIdInput.value = parentDoc.id;
+                                if(replySearch) replySearch.value = `#${parentDoc.regNumber} - ${parentDoc.subject}`;
+                            }
+                        }
+                    } else {
+                        if(replyContainer) replyContainer.classList.add('hidden');
+                    }
 
                     document.getElementById('docRegNumber').value = doc.regNumber;
                     document.getElementById('docRegDate').value = doc.regDate || '';
@@ -501,6 +593,7 @@
                 if(dueDateLabel) dueDateLabel.innerText = 'შესრულების ვადა (არასავალდებულო)';
                 if(sentElectronicallyContainer) sentElectronicallyContainer.classList.add('hidden');
                 if(saveBtn) saveBtn.innerText = "შენახვა";
+                if(replyContainer) replyContainer.classList.add('hidden');
 
                 if(docTypeInput) {
                     docTypeInput.removeAttribute('disabled');
@@ -508,32 +601,17 @@
                 }
                 window.onDocTypeChange();
 
-                if(deptInput) {
-                    deptInput.removeAttribute('disabled');
-                    deptInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-                if(senderInput) {
-                    senderInput.removeAttribute('disabled');
-                    senderInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-                if(subjectInput) {
-                    subjectInput.removeAttribute('disabled');
-                    subjectInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
-                if(statusInput) {
-                    statusInput.removeAttribute('disabled');
-                    statusInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
+                if(deptInput) deptInput.removeAttribute('disabled');
+                if(senderInput) senderInput.removeAttribute('disabled');
+                if(subjectInput) subjectInput.removeAttribute('disabled');
+                if(statusInput) statusInput.removeAttribute('disabled');
+                if(dueDateInput) dueDateInput.removeAttribute('disabled');
 
                 document.getElementById('docId').value = '';
-                const todayStr = formatDateLocal(new Date());
-                document.getElementById('docRegDate').value = todayStr;
+                document.getElementById('docRegDate').value = formatDateLocal(new Date());
                 if(dueDateInput) dueDateInput.value = ''; 
-                
-                if(dueDateInput) {
-                    dueDateInput.removeAttribute('disabled');
-                    dueDateInput.classList.remove('opacity-50', 'cursor-not-allowed');
-                }
+                if(replyIdInput) replyIdInput.value = '';
+                if(replySearch) replySearch.value = '';
 
                 const postChk = document.getElementById('docSentByPost');
                 if(postChk) postChk.checked = false;
@@ -563,9 +641,16 @@
                 return;
             }
 
+            const docTypeVal = document.getElementById('docType').value;
             const statusVal = document.getElementById('docStatus').value;
             const dueDateEl = document.getElementById('docDueDate');
             let dueDateVal = dueDateEl ? dueDateEl.value : '';
+
+            let replyToIdVal = null;
+            if (docTypeVal === 'გასული') {
+                const replyIdInput = document.getElementById('docReplyToId');
+                replyToIdVal = replyIdInput ? (replyIdInput.value || null) : null;
+            }
 
             if (id && currentRole === 'employee' && !dueDateVal) {
                 let targetDate = addBusinessDays(new Date(), 3);
@@ -595,7 +680,7 @@
             const docData = {
                 id: docId,
                 company: currentCompany,
-                type: document.getElementById('docType').value,
+                type: docTypeVal,
                 regNumber: document.getElementById('docRegNumber').value,
                 regDate: document.getElementById('docRegDate').value,
                 sender: document.getElementById('docSender').value,
@@ -606,7 +691,8 @@
                 status: statusVal,
                 subject: document.getElementById('docSubject').value,
                 sentByPost: document.getElementById('docSentByPost').checked,
-                sentElectronically: id ? document.getElementById('docSentElectronically').checked : false
+                sentElectronically: id ? document.getElementById('docSentElectronically').checked : false,
+                replyToId: replyToIdVal
             };
 
             try {
@@ -759,6 +845,14 @@
                     emailsHtml = d.assigneeEmails.map(email => `<div class="text-[11px] text-indigo-300 flex items-center gap-1"><i class="fa-regular fa-envelope text-slate-400"></i>${email}</div>`).join('');
                 }
 
+                let parentLinkHtml = '';
+                if (d.type === 'გასული' && d.replyToId) {
+                    const parentDoc = documents.find(item => item.id === d.replyToId);
+                    if (parentDoc) {
+                        parentLinkHtml = `<div class="text-[11px] text-indigo-400 mt-1 flex items-center gap-1"><i class="fa-solid fa-reply"></i> პასუხია შემოსულზე: #${parentDoc.regNumber}</div>`;
+                    }
+                }
+
                 let postLabel = d.type === 'შემოსული' ? 'მოწოდებულია ფოსტით' : (d.type === 'გასული' ? 'გაგზავნილია ფოსტით' : 'გადაცემულია შიდა წესით');
                 let elecLabel = d.type === 'შემოსული' ? 'ელექტრონულად მიღებულია' : (d.type === 'გასული' ? 'ელექტრონულად გაგზავნილია' : 'ელექტრონულად გავრცელებულია');
 
@@ -772,7 +866,10 @@
                     </td>
                     <td class="py-4 px-3 text-slate-300 text-xs whitespace-nowrap">${d.regDate}</td>
                     <td class="py-4 px-3 font-medium text-slate-200 text-xs">${d.sender}</td>
-                    <td class="py-4 px-3 text-slate-300 text-xs">${d.subject}</td>
+                    <td class="py-4 px-3 text-slate-300 text-xs">
+                        <div>${d.subject}</div>
+                        ${parentLinkHtml}
+                    </td>
                     <td class="py-4 px-3 text-xs">
                         <div class="font-medium text-indigo-300 whitespace-nowrap">${d.dept}</div>
                     </td>
@@ -808,87 +905,37 @@
                 tbody.appendChild(tr);
             });
         };
-
-        document.addEventListener('DOMContentLoaded', () => {
-            if (window.isFirebaseReady) {
-                window.initCompanySession();
-            } else {
-                window.addEventListener('firebase-ready', () => {
-                    window.initCompanySession();
-                });
-            }
-        });
     </script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
 
-    <!-- 1. LOGIN SCREEN -->
+    <!-- 1. AUTHENTICATION LOGIN SCREEN -->
     <div id="loginScreen" class="fixed inset-0 bg-slate-950 z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-xl w-full shadow-2xl text-center space-y-6 my-8">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl p-8 max-w-md w-full shadow-2xl text-center space-y-6 my-8">
             <div class="bg-indigo-600/20 text-indigo-400 w-16 h-16 mx-auto rounded-2xl flex items-center justify-center text-3xl border border-indigo-500/30">
                 <i class="fa-solid fa-building-shield"></i>
             </div>
             <div>
                 <h2 class="text-2xl font-bold text-slate-100">კორესპონდენციის რეესტრი</h2>
-                <p class="text-xs text-slate-400 mt-1">აირჩიეთ ორგანიზაცია და შესვლის როლი</p>
+                <p class="text-xs text-slate-400 mt-1">გთხოვთ გაიაროთ ავტორიზაცია</p>
             </div>
 
-            <!-- თბილისის საფონდო ბირჟა -->
-            <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3 text-left">
-                <div class="flex items-center gap-2 text-indigo-400 font-bold text-sm">
-                    <i class="fa-solid fa-landmark"></i>
-                    <span>თბილისის საფონდო ბირჟა (TSE)</span>
+            <form onsubmit="handleLoginSubmit(event)" class="space-y-4 text-left">
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">სამუშაო ელ-ფოსტა</label>
+                    <input type="email" id="loginEmail" required placeholder="name@gse.ge" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    <button onclick="loginToSystem('tse', 'clerk')" class="bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-folder-plus block mb-1 text-indigo-400"></i> კანცელარია
-                    </button>
-                    <button onclick="loginToSystem('tse', 'employee')" class="bg-slate-900 hover:bg-indigo-950 border border-slate-800 hover:border-indigo-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-tie block mb-1 text-blue-400"></i> თანამშრომელი
-                    </button>
-                    <button onclick="loginToSystem('tse', 'director')" class="bg-slate-900 hover:bg-purple-950 border border-slate-800 hover:border-purple-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-shield block mb-1 text-purple-400"></i> ხელმძღვანელი პირი
-                    </button>
+                <div>
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">პაროლი</label>
+                    <input type="password" id="loginPassword" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
-            </div>
+                
+                <div id="loginError" class="hidden text-rose-400 text-xs font-medium text-center bg-rose-950/40 border border-rose-900/50 p-2.5 rounded-lg"></div>
 
-            <!-- საქართველოს საფონდო ბირჟა -->
-            <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3 text-left">
-                <div class="flex items-center gap-2 text-blue-400 font-bold text-sm">
-                    <i class="fa-solid fa-building-columns"></i>
-                    <span>საქართველოს საფონდო ბირჟა (GSE)</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    <button onclick="loginToSystem('gse', 'clerk')" class="bg-slate-900 hover:bg-blue-950 border border-slate-800 hover:border-blue-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-folder-plus block mb-1 text-indigo-400"></i> კანცელარია
-                    </button>
-                    <button onclick="loginToSystem('gse', 'employee')" class="bg-slate-900 hover:bg-blue-950 border border-slate-800 hover:border-blue-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-tie block mb-1 text-blue-400"></i> თანამშრომელი
-                    </button>
-                    <button onclick="loginToSystem('gse', 'director')" class="bg-slate-900 hover:bg-purple-950 border border-slate-800 hover:border-purple-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-shield block mb-1 text-purple-400"></i> ხელმძღვანელი პირი
-                    </button>
-                </div>
-            </div>
-
-            <!-- ფ/ქ ცენტრალური დეპოზიტარი -->
-            <div class="bg-slate-950 border border-slate-800 p-4 rounded-xl space-y-3 text-left">
-                <div class="flex items-center gap-2 text-purple-400 font-bold text-sm">
-                    <i class="fa-solid fa-vault"></i>
-                    <span>ფ/ქ ცენტრალური დეპოზიტარი (CSD)</span>
-                </div>
-                <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
-                    <button onclick="loginToSystem('depo', 'clerk')" class="bg-slate-900 hover:bg-purple-950 border border-slate-800 hover:border-purple-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-folder-plus block mb-1 text-indigo-400"></i> კანცელარია
-                    </button>
-                    <button onclick="loginToSystem('depo', 'employee')" class="bg-slate-900 hover:bg-purple-950 border border-slate-800 hover:border-purple-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-tie block mb-1 text-blue-400"></i> თანამშრომელი
-                    </button>
-                    <button onclick="loginToSystem('depo', 'director')" class="bg-slate-900 hover:bg-purple-950 border border-slate-800 hover:border-purple-800 text-slate-300 py-2 px-3 rounded-lg text-xs font-medium transition text-center">
-                        <i class="fa-solid fa-user-shield block mb-1 text-purple-400"></i> ხელმძღვანელი პირი
-                    </button>
-                </div>
-            </div>
+                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-2.5 rounded-lg text-sm transition shadow">
+                    სისტემაში შესვლა
+                </button>
+            </form>
         </div>
     </div>
 
@@ -909,10 +956,13 @@
                     </div>
                 </div>
 
-                <div class="flex items-center space-x-3">
-                    <button onclick="logoutCompany()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center gap-2" title="სისტემიდან გასვლა">
+                <div class="flex flex-wrap items-center gap-3">
+                    <!-- კომპანიებს შორის გადართვის ტაბები -->
+                    <div id="companyTabsContainer" class="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800"></div>
+
+                    <button onclick="logoutSystem()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-2 rounded-lg text-xs font-medium transition border border-slate-700 flex items-center gap-2" title="სისტემიდან გასვლა">
                         <i class="fa-solid fa-right-from-bracket text-rose-400"></i>
-                        <span>გასვლა / ორგანიზაციის შეცვლა</span>
+                        <span>გასვლა</span>
                     </button>
 
                     <button id="newDocBtn" onclick="requestNewDoc()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg font-medium shadow transition flex items-center space-x-2 text-sm">
@@ -1063,6 +1113,13 @@
                         <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">რეგისტრაციის ნომერი</label>
                         <input type="text" id="docRegNumber" required class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
                     </div>
+                </div>
+
+                <div id="replyToContainer" class="hidden relative">
+                    <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">პასუხია შემოსულ წერილზე (სურვილისამებრ)</label>
+                    <input type="text" id="docReplySearch" placeholder="ჩაწერეთ ნომერი ან საკითხი ძიებისთვის..." oninput="filterReplyDocs(this.value)" autocomplete="off" class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500">
+                    <input type="hidden" id="docReplyToId">
+                    <div id="replySearchResults" class="absolute z-50 left-0 right-0 mt-1 bg-slate-900 border border-slate-800 rounded-lg shadow-xl max-h-48 overflow-y-auto hidden"></div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

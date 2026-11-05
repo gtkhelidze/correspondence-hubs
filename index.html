@@ -182,12 +182,17 @@
             const mainApp = document.getElementById('mainApp');
             const companyTitle = document.getElementById('companyTitle');
             const roleBadge = document.getElementById('roleBadge');
+            const userNameDisplay = document.getElementById('userNameDisplay');
             const companyTabsContainer = document.getElementById('companyTabsContainer');
 
             if (!loginScreen || !mainApp || !companyTitle || !roleBadge) return;
 
             loginScreen.classList.add('hidden');
             mainApp.classList.remove('hidden');
+
+            if (userNameDisplay && currentUserData && currentUserData.fullName) {
+                userNameDisplay.innerText = currentUserData.fullName;
+            }
 
             if (companyTabsContainer && currentUserData && currentUserData.accessRoles) {
                 companyTabsContainer.innerHTML = '';
@@ -939,7 +944,10 @@
                             <h1 id="companyTitle" class="text-xl font-bold text-slate-100">რეესტრი</h1>
                             <span id="roleBadge" class="text-xs px-2.5 py-0.5 rounded-full"></span>
                         </div>
-                        <p class="text-xs text-slate-400 mt-0.5">შემოსული და გასული დოკუმენტების მართვა</p>
+                        <div class="flex items-center gap-2 mt-1">
+                            <span class="text-xs text-slate-400">მომხმარებელი:</span>
+                            <span id="userNameDisplay" class="text-xs font-semibold text-indigo-300"></span>
+                        </div>
                     </div>
                 </div>
 

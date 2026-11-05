@@ -378,8 +378,8 @@
 
             const docId = document.getElementById('docId').value;
             const doc = documents.find(d => d.id === docId);
-            const currentUserName = currentUserData ? currentUserData.fullName : null;
-            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+            const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : null;
+            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.some(a => a.trim() === currentUserName);
             const canManage = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
             currentAssignees.forEach(name => {
@@ -433,8 +433,8 @@
 
             const docId = document.getElementById('docId').value;
             const doc = documents.find(d => d.id === docId);
-            const currentUserName = currentUserData ? currentUserData.fullName : null;
-            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+            const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : null;
+            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.some(a => a.trim() === currentUserName);
             const canManage = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
             currentEmails.forEach(email => {
@@ -501,8 +501,8 @@
 
             if (id) {
                 const doc = documents.find(d => d.id === id);
-                const currentUserName = currentUserData ? currentUserData.fullName : null;
-                const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+                const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : null;
+                const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.some(a => a.trim() === currentUserName);
                 const canEdit = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
                 if(modalTitle) {
@@ -532,7 +532,6 @@
                     }
                 });
 
-                // თუ ჩვეულებრივი თანამშრომელია (assignee), ზოგიერთ ზოგად ველს ვუზღუდავთ, რომ მხოლოდ სტატუსი/საკითხი შეცვალოს
                 if (currentRole === 'employee' && isAssignee && currentRole !== 'clerk' && currentRole !== 'director') {
                     if(deptInput) deptInput.setAttribute('disabled', 'true');
                     if(senderInput) senderInput.setAttribute('disabled', 'true');
@@ -623,9 +622,9 @@
             e.preventDefault();
             const id = document.getElementById('docId').value;
             
-            const currentUserName = currentUserData ? currentUserData.fullName : null;
+            const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : null;
             const existingDoc = documents.find(d => d.id === id);
-            const isAssignee = existingDoc && existingDoc.assignees && currentUserName && existingDoc.assignees.includes(currentUserName);
+            const isAssignee = existingDoc && existingDoc.assignees && currentUserName && existingDoc.assignees.some(a => a.trim() === currentUserName);
             const canSave = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
             if (!canSave) {

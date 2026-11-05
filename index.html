@@ -107,6 +107,12 @@
                             if (userSnap.exists()) {
                                 currentUserData = userSnap.data();
                                 
+                                // აქ તરვე გამოვუტანოთ სახელი და გვარი ჰედერში
+                                const userNameDisplay = document.getElementById('userNameDisplay');
+                                if (userNameDisplay && currentUserData.fullName) {
+                                    userNameDisplay.innerText = currentUserData.fullName;
+                                }
+
                                 const availableCompanies = Object.keys(currentUserData.accessRoles || {});
                                 if (!currentCompany || !currentUserData.accessRoles[currentCompany]) {
                                     currentCompany = availableCompanies.length > 0 ? availableCompanies[0] : null;

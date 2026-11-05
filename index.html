@@ -378,10 +378,9 @@
 
             const docId = document.getElementById('docId').value;
             const doc = documents.find(d => d.id === docId);
-            const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
-            const isOwner = doc && doc.owner_uid === currentUid;
-            
-            const canManage = isOwner || currentRole === 'clerk' || currentRole === 'director';
+            const currentUserName = currentUserData ? currentUserData.fullName : null;
+            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+            const canManage = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
             currentAssignees.forEach(name => {
                 const tag = document.createElement('div');
@@ -434,10 +433,9 @@
 
             const docId = document.getElementById('docId').value;
             const doc = documents.find(d => d.id === docId);
-            const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
-            const isOwner = doc && doc.owner_uid === currentUid;
-            
-            const canManage = isOwner || currentRole === 'clerk' || currentRole === 'director';
+            const currentUserName = currentUserData ? currentUserData.fullName : null;
+            const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+            const canManage = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
             currentEmails.forEach(email => {
                 const tag = document.createElement('div');
@@ -503,15 +501,16 @@
 
             if (id) {
                 const doc = documents.find(d => d.id === id);
-                const currentUid = window.firebaseAuth.currentUser ? window.firebaseAuth.currentUser.uid : null;
-                const isOwner = doc && doc.owner_uid === currentUid;
+                const currentUserName = currentUserData ? currentUserData.fullName : null;
+                const isAssignee = doc && doc.assignees && currentUserName && doc.assignees.includes(currentUserName);
+                const canEdit = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
 
                 if(modalTitle) {
-                    modalTitle.innerText = isOwner ? "დოკუმენტის რედაქტირება" : "დოკუმენტის ნახვა (მხოლოდ წაკითხვა)";
+                    modalTitle.innerText = canEdit ? "დოკუმენტის რედაქტირება" : "დოკუმენტის ნახვა (მხოლოდ წაკითხვა)";
                 }
                 
                 if (saveBtn) {
-                    if (isOwner || currentRole === 'director' || currentRole === 'clerk') {
+                    if (canEdit) {
                         saveBtn.style.display = 'inline-block';
                         saveBtn.innerText = "ცვლილებების შენახვა";
                     } else {
@@ -519,7 +518,7 @@
                     }
                 }
 
-                const shouldDisable = !isOwner && currentRole === 'employee';
+                const shouldDisable = !canEdit;
                 
                 [docTypeInput, regNumberInput, regDateInput, senderInput, deptInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
                     if(el) {
@@ -533,13 +532,13 @@
                     }
                 });
 
-                if (currentRole === 'employee' && isOwner) {
+                // თუ ჩვეულებრივი თანამშრომელია (assignee), ზოგიერთ ზოგად ველს ვუზღუდავთ, რომ მხოლოდ სტატუსი/საკითხი შეცვალოს
+                if (currentRole === 'employee' && isAssignee && currentRole !== 'clerk' && currentRole !== 'director') {
                     if(deptInput) deptInput.setAttribute('disabled', 'true');
                     if(senderInput) senderInput.setAttribute('disabled', 'true');
-                    if(dueDateInput) {
-                        dueDateInput.setAttribute('disabled', 'true');
-                        dueDateInput.classList.add('opacity-50', 'cursor-not-allowed');
-                    }
+                    if(regNumberInput) regNumberInput.setAttribute('disabled', 'true');
+                    if(regDateInput) regDateInput.setAttribute('disabled', 'true');
+                    if(docTypeInput) docTypeInput.setAttribute('disabled', 'true');
                 }
 
                 if (doc) {
@@ -624,6 +623,16 @@
             e.preventDefault();
             const id = document.getElementById('docId').value;
             
+            const currentUserName = currentUserData ? currentUserData.fullName : null;
+            const existingDoc = documents.find(d => d.id === id);
+            const isAssignee = existingDoc && existingDoc.assignees && currentUserName && existingDoc.assignees.includes(currentUserName);
+            const canSave = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
+
+            if (!canSave) {
+                alert("თქვენ არ გაქვთ ამ დოკუმენტის რედაქტირების უფლება!");
+                return;
+            }
+
             if (currentAssignees.length === 0) {
                 alert("გთხოვთ აირჩიოთ მინიმუმ ერთი პასუხისმგებელი პირი!");
                 return;
@@ -640,32 +649,7 @@
                 replyToIdVal = replyIdInput ? (replyIdInput.value || null) : null;
             }
 
-            if (id && currentRole === 'employee' && !dueDateVal) {
-                let targetDate = addBusinessDays(new Date(), 3);
-                dueDateVal = formatDateLocal(targetDate);
-            }
-
-            if (id && currentRole === 'director' && dueDateVal) {
-                const oldDoc = documents.find(d => d.id === id);
-                if (oldDoc && oldDoc.regDate) {
-                    if (dueDateVal < oldDoc.regDate) {
-                        alert("ახალი ვადა არ შეიძლება იყოს რეგისტრაციის თარიღზე ადრე!");
-                        return;
-                    }
-
-                    let baseDate = new Date(oldDoc.regDate);
-                    baseDate.setMonth(baseDate.getMonth() + 1);
-                    let maxAllowedStr = formatDateLocal(baseDate);
-                    
-                    if (dueDateVal > maxAllowedStr) {
-                        alert(`ხელმძღვანელ პირს ვადის გაზრდა შეუძლია რეგისტრაციის თარიღიდან მაქსიმუმ 1 თვით! (მაქსიმალური დასაშვები ვადა: ${maxAllowedStr})`);
-                        return;
-                    }
-                }
-            }
-
             const docId = id ? id : Date.now().toString();
-            const existingDoc = documents.find(d => d.id === docId);
             const ownerUid = existingDoc ? (existingDoc.owner_uid || window.firebaseAuth.currentUser.uid) : window.firebaseAuth.currentUser.uid;
 
             const docData = {

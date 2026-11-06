@@ -588,7 +588,7 @@
                     currentAssignees = [...(doc.assignees || [])];
                     currentEmails = [...(doc.assigneeEmails || [])];
 
-                    // ისტორიის ვიზუალური გამოტანა არსებული დოკუმენტისთვის
+                    // ისტორიის ვიზუალური გამოტანა
                     if (historySection && historyListContainer) {
                         if (doc.history && doc.history.length > 0) {
                             historyListContainer.innerHTML = '';
@@ -688,7 +688,7 @@
             const docId = id ? id : Date.now().toString();
             const ownerUid = existingDoc ? (existingDoc.owner_uid || window.firebaseAuth.currentUser.uid) : window.firebaseAuth.currentUser.uid;
 
-            // აუდიტის ისტორიის (Audit Trail) ჩაწერა / განახლება
+            // აუდიტის ისტორიის ჩაწერა
             let existingHistory = existingDoc ? (existingDoc.history || []) : [];
             const actionText = existingDoc ? `განაახლა დოკუმენტი (სტატუსი: ${statusVal})` : `დაარეგისტრირა დოკუმენტი`;
             

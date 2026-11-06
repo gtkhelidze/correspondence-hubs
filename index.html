@@ -96,13 +96,6 @@
             return `${year}-${month}-${day}`;
         }
 
-        function formatDateTimeLocal(d) {
-            const dateStr = formatDateLocal(d);
-            const hours = String(d.getHours()).padStart(2, '0');
-            const minutes = String(d.getMinutes()).padStart(2, '0');
-            return `${dateStr} ${hours}:${minutes}`;
-        }
-
         function updateUserNameOnScreen() {
             const userNameDisplay = document.getElementById('userNameDisplay');
             if (userNameDisplay) {
@@ -268,8 +261,7 @@
                         documents.push({
                             ...data,
                             assignees: data.assignees || [],
-                            assigneeEmails: data.assigneeEmails || [],
-                            history: data.history || []
+                            assigneeEmails: data.assigneeEmails || []
                         });
                     }
                 });
@@ -291,6 +283,19 @@
         window.requestEditDoc = function(id) {
             window.openModal(id);
         };
+
+        function addBusinessDays(startDate, daysToAdd) {
+            let currentDate = new Date(startDate);
+            let addedDays = 0;
+            while (addedDays < daysToAdd) {
+                currentDate.setDate(currentDate.getDate() + 1);
+                let dayOfWeek = currentDate.getDay();
+                if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+                    addedDays++;
+                }
+            }
+            return currentDate;
+        }
 
         window.onDocTypeChange = function() {
             const type = document.getElementById('docType').value;
@@ -491,8 +496,6 @@
             const replyContainer = document.getElementById('replyToContainer');
             const replySearch = document.getElementById('docReplySearch');
             const replyIdInput = document.getElementById('docReplyToId');
-            const historySection = document.getElementById('historySection');
-            const historyListContainer = document.getElementById('historyListContainer');
 
             const deptInput = document.getElementById('docDept');
             const senderInput = document.getElementById('docSender');
@@ -544,6 +547,7 @@
                     }
                 });
 
+                // დეპარტამენტი თავისუფალია რედაქტირებისთვის კანცელარიისთვის, დირექტორისთვის და პასუხისმგებლისთვისაც თუ რედაქტირების უფლება აქვს
                 if (deptInput) {
                     if (shouldDisable) {
                         deptInput.setAttribute('disabled', 'true');
@@ -587,28 +591,6 @@
                     
                     currentAssignees = [...(doc.assignees || [])];
                     currentEmails = [...(doc.assigneeEmails || [])];
-
-                    // ისტორიის ვიზუალური გამოტანა
-                    if (historySection && historyListContainer) {
-                        if (doc.history && doc.history.length > 0) {
-                            historyListContainer.innerHTML = '';
-                            doc.history.forEach(h => {
-                                const item = document.createElement('div');
-                                item.className = 'text-xs text-slate-300 flex items-start justify-between border-b border-slate-800/80 pb-2 last:border-b-0 last:pb-0';
-                                item.innerHTML = `
-                                    <div>
-                                        <span class="font-bold text-indigo-400">${h.user}</span>: 
-                                        <span class="text-slate-200">${h.action}</span>
-                                    </div>
-                                    <div class="text-[11px] text-slate-400 whitespace-nowrap ml-2"><i class="fa-regular fa-clock mr-1"></i>${h.timestamp}</div>
-                                `;
-                                historyListContainer.appendChild(item);
-                            });
-                            historySection.classList.remove('hidden');
-                        } else {
-                            historySection.classList.add('hidden');
-                        }
-                    }
                 }
             } else {
                 if (currentRole !== 'clerk') return;
@@ -620,7 +602,6 @@
                     saveBtn.innerText = "შენახვა";
                 }
                 if(replyContainer) replyContainer.classList.add('hidden');
-                if(historySection) historySection.classList.add('hidden');
 
                 [docTypeInput, regNumberInput, regDateInput, senderInput, deptInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
                     if(el) {
@@ -659,7 +640,7 @@
             e.preventDefault();
             const id = document.getElementById('docId').value;
             
-            const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : "მომხმარებელი";
+            const currentUserName = currentUserData && currentUserData.fullName ? currentUserData.fullName.trim() : null;
             const existingDoc = documents.find(d => d.id === id);
             const isAssignee = existingDoc && existingDoc.assignees && currentUserName && existingDoc.assignees.some(a => a.trim() === currentUserName);
             const canSave = currentRole === 'clerk' || currentRole === 'director' || isAssignee;
@@ -688,16 +669,6 @@
             const docId = id ? id : Date.now().toString();
             const ownerUid = existingDoc ? (existingDoc.owner_uid || window.firebaseAuth.currentUser.uid) : window.firebaseAuth.currentUser.uid;
 
-            // აუდიტის ისტორიის ჩაწერა
-            let existingHistory = existingDoc ? (existingDoc.history || []) : [];
-            const actionText = existingDoc ? `განაახლა დოკუმენტი (სტატუსი: ${statusVal})` : `დაარეგისტრირა დოკუმენტი`;
-            
-            existingHistory.push({
-                timestamp: formatDateTimeLocal(new Date()),
-                user: currentUserName,
-                action: actionText
-            });
-
             const docData = {
                 id: docId,
                 company: currentCompany,
@@ -714,8 +685,7 @@
                 sentByPost: document.getElementById('docSentByPost').checked,
                 sentElectronically: id ? document.getElementById('docSentElectronically').checked : false,
                 replyToId: replyToIdVal,
-                owner_uid: ownerUid,
-                history: existingHistory
+                owner_uid: ownerUid
             };
 
             try {
@@ -1235,15 +1205,6 @@
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 uppercase mb-1">საკითხი / შინაარსი</label>
                     <textarea id="docSubject" rows="3" required placeholder="მოკლე აღწერა..." class="w-full bg-slate-950 border border-slate-800 text-slate-200 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-indigo-500"></textarea>
-                </div>
-
-                <!-- Audit Trail / History Section Inside Modal -->
-                <div id="historySection" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-4 space-y-3 mt-4">
-                    <div class="flex items-center gap-2 text-xs font-bold text-slate-400 uppercase">
-                        <i class="fa-solid fa-clock-rotate-left text-indigo-400"></i>
-                        <span>დოკუმენტის ისტორია (Audit Trail)</span>
-                    </div>
-                    <div id="historyListContainer" class="space-y-2 max-h-36 overflow-y-auto no-scrollbar"></div>
                 </div>
 
                 <div class="flex justify-end space-x-3 pt-4 border-t border-slate-800 shrink-0">

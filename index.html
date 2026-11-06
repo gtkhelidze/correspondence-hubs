@@ -535,7 +535,7 @@
 
                 const shouldDisable = !canEdit;
                 
-                [docTypeInput, regNumberInput, regDateInput, senderInput, deptInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
+                [docTypeInput, regNumberInput, regDateInput, senderInput, dueDateInput, statusInput, subjectInput, postChk, elecChk].forEach(el => {
                     if(el) {
                         if (shouldDisable) {
                             el.setAttribute('disabled', 'true');
@@ -547,12 +547,15 @@
                     }
                 });
 
-                if (currentRole === 'employee' && isAssignee && currentRole !== 'clerk' && currentRole !== 'director') {
-                    if(deptInput) deptInput.setAttribute('disabled', 'true');
-                    if(senderInput) senderInput.setAttribute('disabled', 'true');
-                    if(regNumberInput) regNumberInput.setAttribute('disabled', 'true');
-                    if(regDateInput) regDateInput.setAttribute('disabled', 'true');
-                    if(docTypeInput) docTypeInput.setAttribute('disabled', 'true');
+                // დეპარტამენტი თავისუფალია რედაქტირებისთვის კანცელარიისთვის, დირექტორისთვის და პასუხისმგებლისთვისაც თუ რედაქტირების უფლება აქვს
+                if (deptInput) {
+                    if (shouldDisable) {
+                        deptInput.setAttribute('disabled', 'true');
+                        deptInput.classList.add('opacity-50', 'cursor-not-allowed');
+                    } else {
+                        deptInput.removeAttribute('disabled');
+                        deptInput.classList.remove('opacity-50', 'cursor-not-allowed');
+                    }
                 }
 
                 if (doc) {
